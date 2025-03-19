@@ -18,4 +18,151 @@
 <p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
 ]]></content>
   </entry>
+  <entry>
+    <title>操作系统</title>
+    <url>/2025/03/20/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/</url>
+    <content><![CDATA[<h1 id="操作系统笔记1"><a href="#操作系统笔记1" class="headerlink" title="操作系统笔记1"></a>操作系统笔记1</h1><h3 id="2-3同步与互斥"><a href="#2-3同步与互斥" class="headerlink" title="2.3同步与互斥"></a>2.3同步与互斥</h3><ol>
+<li><p><strong>软件互斥的实现方法</strong>（从进入区，临界区，退出区考虑）</p>
+<ul>
+<li><p><strong>单标志法</strong>（一个turn）</p>
+<p>只能在退出区由另外一个进程把进去区的权限转交到另外一个进程，没有上锁的过程</p>
+<p><strong>优点</strong>：只能一个进程显示用完之后临界区的资源才能让下一个进程使用，</p>
+<p><strong>缺点</strong>：在使用此临界区资源的进程主动退出或者需要访问其他资源的时候违背了<strong>空闲让进</strong>的原则</p>
+</li>
+<li><p><strong>双标志法</strong>（flag【2】）</p>
+<ul>
+<li><p>双标志先检查</p>
+<p>在进入区先检查后上锁。</p>
+<p><strong>缺点</strong>：会出现在检查和上锁的时候发生调用导致两个进程都进入临界区，违背了<strong>忙则等待</strong>原则</p>
+<blockquote>
+<p> 也就是临界区有一个进程在运行的时候，另一个进程应该等待直到另一个进程释放该资源</p>
+</blockquote>
+</li>
+<li><p>双标志后检查</p>
+<p>先上锁后检查</p>
+<p><strong>缺点</strong>：有可能都先上锁，检查的时候都无法进去，违背<strong>空闲让进,忙则等待</strong>原则</p>
+<blockquote>
+<p>也就是在临界区空闲的时候应该让有需求的进程进去避免浪费</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p><strong>Perterson算法</strong>(同时使用turn和flag数组)</p>
+<p>在进入去的时候先上锁后标记turn最后检查两个条件,谁最后谦让决定最后谁进入</p>
+<p><strong>缺点</strong>:不遵循<strong>让权等待原则</strong></p>
+<blockquote>
+<p>如果进程不能进入临界区，则它应该释放处理器，让其他进程运行。(在一个进程运行的时候另一个进程一直在循环检查自己是否能进入,浪费处理机资源</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p><strong>进程互斥的硬件实现方法</strong></p>
+<ul>
+<li><p><strong>中断屏蔽方法</strong></p>
+<p>利用<strong>开关中断</strong>，先执行关中断，让临界区资源上锁，直到进程执行完成到开中断的时候，期间不允许被中断</p>
+<p> <strong>缺点</strong>：1.不使用多处理机</p>
+<pre><code>     2.只能处理内核进程，不能处理用户进程&lt;u&gt;（只能运行在内核态中，用户随意使用很危险）&lt;/u&gt;    
+</code></pre>
+</li>
+<li><p><strong>TS指令法（TestAndSet指令）</strong></p>
+<p>使用lock和old，lock代表是否上锁，在ts指令中把lock上锁，返回当前正在访问临界资源的进程的old指令，循环判断</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">bool <span class="title function_">TestAndset</span><span class="params">(*bool lock)</span></span><br><span class="line">&#123;</span><br><span class="line">bool old;</span><br><span class="line">old=*lock;</span><br><span class="line">*lock=ture;</span><br><span class="line"><span class="keyword">return</span> old;</span><br><span class="line"><span class="comment">//保存当前进程状态，给lock上锁</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(TestAndSet(&amp; lock))</span><br><span class="line">&#123;&#125;;<span class="comment">//常用办法来限制</span></span><br><span class="line"><span class="comment">//临界区代码段</span></span><br><span class="line">lock=<span class="literal">false</span><span class="comment">//解锁</span></span><br><span class="line"><span class="comment">//其余代码段</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="D:\javawork\image-20250314131138909.png" alt="image-20250314131138909"></p>
+<p><strong>优点</strong>:在上锁同时检查，<strong>避免期间的调用</strong></p>
+<p> <strong>缺点</strong>：不满足<strong>让权等待</strong></p>
+</li>
+<li><p><strong>Swap指令（&#x2F;XCHG指令）</strong></p>
+<p>Swap函数实现两个值的交换，</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">bool old=<span class="literal">true</span>;</span><br><span class="line"><span class="keyword">while</span> (old==<span class="literal">true</span>)</span><br><span class="line">&#123;</span><br><span class="line">swap(&amp;old,&amp;lock);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//交换，如果当前锁了就循环，没锁old交换为false，本进程可以继续的同时lock被交换为上锁，阻止其他进程访问</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p><strong>互斥锁</strong></p>
+<p>利用acquire函数和release函数，判断avaible变量</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">acquire ()</span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">while</span>(!available);<span class="comment">//可使用时这个循环结束，给临界区下一步上锁</span></span><br><span class="line">available=<span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">release()</span><br><span class="line">&#123;</span><br><span class="line">available=ture;<span class="comment">//使用完之后解锁</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>缺点</strong>:</p>
+<p><strong>违背让权等待</strong>，在临界区被占用的时候，其他进程只能循环调用acquire函数（称为<strong>自旋锁</strong>）</p>
+<blockquote>
+<p>注意：忙等待当时间片用完之后还是要下处理机的</p>
+</blockquote>
+<p> <strong>优点</strong>：</p>
+<p>用于多核处理机中等待的代价较小，其他核工作有可能释放大量的临界区资源，不适用单核处理机。（不用切换进程上下文）</p>
+<h1 id="操作系统笔记1-1"><a href="#操作系统笔记1-1" class="headerlink" title="操作系统笔记1"></a>操作系统笔记1</h1><h3 id="2-3同步与互斥-1"><a href="#2-3同步与互斥-1" class="headerlink" title="2.3同步与互斥"></a>2.3同步与互斥</h3><ol>
+<li><p><strong>软件互斥的实现方法</strong>（从进入区，临界区，退出区考虑）</p>
+<ul>
+<li><p><strong>单标志法</strong>（一个turn）</p>
+<p>只能在退出区由另外一个进程把进去区的权限转交到另外一个进程，没有上锁的过程</p>
+<p><strong>优点</strong>：只能一个进程显示用完之后临界区的资源才能让下一个进程使用，</p>
+<p><strong>缺点</strong>：在使用此临界区资源的进程主动退出或者需要访问其他资源的时候违背了<strong>空闲让进</strong>的原则</p>
+</li>
+<li><p><strong>双标志法</strong>（flag【2】）</p>
+<ul>
+<li><p>双标志先检查</p>
+<p>在进入区先检查后上锁。</p>
+<p><strong>缺点</strong>：会出现在检查和上锁的时候发生调用导致两个进程都进入临界区，违背了<strong>忙则等待</strong>原则</p>
+<blockquote>
+<p> 也就是临界区有一个进程在运行的时候，另一个进程应该等待直到另一个进程释放该资源</p>
+</blockquote>
+</li>
+<li><p>双标志后检查</p>
+<p>先上锁后检查</p>
+<p><strong>缺点</strong>：有可能都先上锁，检查的时候都无法进去，违背<strong>空闲让进,忙则等待</strong>原则</p>
+<blockquote>
+<p>也就是在临界区空闲的时候应该让有需求的进程进去避免浪费</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p><strong>Perterson算法</strong>(同时使用turn和flag数组)</p>
+<p>在进入去的时候先上锁后标记turn最后检查两个条件,谁最后谦让决定最后谁进入</p>
+<p><strong>缺点</strong>:不遵循<strong>让权等待原则</strong></p>
+<blockquote>
+<p>如果进程不能进入临界区，则它应该释放处理器，让其他进程运行。(在一个进程运行的时候另一个进程一直在循环检查自己是否能进入,浪费处理机资源</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p><strong>进程互斥的硬件实现方法</strong></p>
+<ul>
+<li><p><strong>中断屏蔽方法</strong></p>
+<p>利用<strong>开关中断</strong>，先执行关中断，让临界区资源上锁，直到进程执行完成到开中断的时候，期间不允许被中断</p>
+<p> <strong>缺点</strong>：1.不使用多处理机</p>
+<pre><code>     2.只能处理内核进程，不能处理用户进程&lt;u&gt;（只能运行在内核态中，用户随意使用很危险）&lt;/u&gt;    
+</code></pre>
+</li>
+<li><p><strong>TS指令法（TestAndSet指令）</strong></p>
+<p>使用lock和old，lock代表是否上锁，在ts指令中把lock上锁，返回当前正在访问临界资源的进程的old指令，循环判断</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">bool <span class="title function_">TestAndset</span><span class="params">(*bool lock)</span></span><br><span class="line">&#123;</span><br><span class="line">bool old;</span><br><span class="line">old=*lock;</span><br><span class="line">*lock=ture;</span><br><span class="line"><span class="keyword">return</span> old;</span><br><span class="line"><span class="comment">//保存当前进程状态，给lock上锁</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">while</span>(TestAndSet(&amp; lock))</span><br><span class="line">&#123;&#125;;<span class="comment">//常用办法来限制</span></span><br><span class="line"><span class="comment">//临界区代码段</span></span><br><span class="line">lock=<span class="literal">false</span><span class="comment">//解锁</span></span><br><span class="line"><span class="comment">//其余代码段</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="D:\javawork\image-20250314131138909.png" alt="image-20250314131138909"></p>
+<p><strong>优点</strong>:在上锁同时检查，<strong>避免期间的调用</strong></p>
+<p> <strong>缺点</strong>：不满足<strong>让权等待</strong></p>
+</li>
+<li><p><strong>Swap指令（&#x2F;XCHG指令）</strong></p>
+<p>Swap函数实现两个值的交换，</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">bool old=<span class="literal">true</span>;</span><br><span class="line"><span class="keyword">while</span> (old==<span class="literal">true</span>)</span><br><span class="line">&#123;</span><br><span class="line">swap(&amp;old,&amp;lock);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//交换，如果当前锁了就循环，没锁old交换为false，本进程可以继续的同时lock被交换为上锁，阻止其他进程访问</span></span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p><strong>互斥锁</strong></p>
+<p>利用acquire函数和release函数，判断avaible变量</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">acquire ()</span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">while</span>(!available);<span class="comment">//可使用时这个循环结束，给临界区下一步上锁</span></span><br><span class="line">available=<span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">release()</span><br><span class="line">&#123;</span><br><span class="line">available=ture;<span class="comment">//使用完之后解锁</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>缺点</strong>:</p>
+<p><strong>违背让权等待</strong>，在临界区被占用的时候，其他进程只能循环调用acquire函数（称为<strong>自旋锁</strong>）</p>
+<blockquote>
+<p>注意：忙等待当时间片用完之后还是要下处理机的</p>
+</blockquote>
+<p> <strong>优点</strong>：</p>
+<p>用于多核处理机中等待的代价较小，其他核工作有可能释放大量的临界区资源，不适用单核处理机。（不用切换进程上下文）</p>
+</li>
+</ol>
+</li>
+</ol>
+]]></content>
+  </entry>
 </search>
